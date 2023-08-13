@@ -1,0 +1,157 @@
+with finger print
+
+import tkinter as tk
+from tkinter import messagebox
+from typing import Self
+from pyfingerprint.pyfingerprint import PyFingerprint
+import sqlite3
+
+# Connect to database
+conn = sqlite3.connect('attendance.db')
+c = conn.cursor()
+
+# Create table
+c.execute('''CREATE TABLE IF NOT EXISTS students
+             (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL, name TEXT NOT NULL, fingerprint_id INT NOT NULL)''')
+
+
+class CKT_UTAS_AttendanceSystem(tk.Frame):
+    def __init__(self, master=None):
+        super().__init__(master, bg='#F0F0F0')
+        self.master = master
+        self.pack()
+        self.create_widgets()
+        self.f = None
+
+    def create_widgets(self):
+        self.logo = tk.PhotoImage(file='LOGO.png')
+        self.logo_label = tk.Label(self, image=self.logo, bg='#F0F0F0')
+        self.logo_label.pack(side="top", pady=10)
+
+        self.label = tk.Label(self, text="Scan your fingerprint to mark your attendance:", bg='#F0F0F0', fg='#333')
+        self.label.pack(side="top", pady=10)
+
+        self.scan_button = tk.Button(self, text="Scan", command=self.scan_fingerprint, bg='#4CAF50', fg='white', padx=20, pady=10)
+        self.scan_button.pack(side="top", pady=10)
+        
+    def scan_fingerprint(self):
+        try:
+            self.f = PyFingerprint('/dev/ttyUSB0', 57600, 0xFFFFFFFF, 0x00000000)
+            if not self.f.verifyPassword():
+                raise ValueError('The given fingerprint sensor password is wrong!')
+            print('Currently used templates: ' + str(self.f.getTemplateCount()))
+
+            # Search for a finger
+            self.label.config(text="Put your finger on the scanner")
+            while True:
+                if self.f.readImage():
+                    self.f.convertImage(0x01)
+                    result = self.f.searchTemplate()
+                    positionNumber = result[0]
+                    if positionNumber >= 0:
+                        self.label.config(text="Welcome, you are now marked as present!", fg='#4CAF50')
+                        student = c.execute("SELECT * FROM students WHERE fingerprint_id=?", (positionNumber,)).fetchone()
+                        if student is not None:
+                            print('Attendance recorded for student ID:', student[1], 'Name:', student[2])
+                            break
+                        else:
+                            self.label.config(text="Sorry, your fingerprint is not registered in the system!", fg='red')
+                            break
+                    else:
+                        self.label.config(text="Sorry, your fingerprint could not be identified!", fg='red')
+                        break
+        except Exception as e:
+            print('The fingerprint sensor could not be initialized!', str(e))
+            messagebox.showerror("Error", "The fingerprint sensor could not be initialized!")
+            
+            
+            
+
+
+root = tk.Tk()
+root.title('CKT UTAS ATTENDANCE SYSTEM')
+root.geometry('300x250')
+root.configure(bg='#F0F0F0')
+root.iconbitmap('LOGO.ico')
+app = CKT_UTAS_AttendanceSystem(master=root)
+app.mainloop()
+# Close database connection
+conn.commit()
+conn.close()
+
+
+without finger print
+
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import pyodbc
+
+# Connect to database
+conn_str = (
+    r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
+    r'DBQ=C:\Users\user\Documents\Database1.accdb;'
+)
+
+conn = pyodbc.connect(conn_str)
+c = conn.cursor()
+
+
+class CKT_UTAS_AttendanceSystem(tk.Frame):
+    def __init__(self, master=None):
+        super().__init__(master, bg='#F0F0F0')
+        self.master = master
+        self.pack()
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.logo = tk.PhotoImage(file='LOGO.png')
+        self.logo_label = tk.Label(self, image=self.logo, bg='#F0F0F0')
+        self.logo_label.pack(side="top", pady=10)
+
+        self.label = tk.Label(self, text="Scan your student ID to mark your attendance:", bg='#F0F0F0', fg='#333')
+        self.label.pack(side="top", pady=10)
+
+        self.scan_button = tk.Button(self, text="Scan", command=self.scan_student_id, bg='#4CAF50', fg='white', padx=20, pady=10)
+        self.scan_button.pack(side="top", pady=10)
+
+        add_student_button = tk.Button(self, text="Add Student", command=self.show_add_student_dialog, bg='#4CAF50', fg='white', padx=20, pady=10)
+        add_student_button.pack(side="top", pady=10)
+
+    def show_add_student_dialog(self):
+        student_id = simpledialog.askstring("Student ID", "Enter the student ID:")
+        if not student_id:
+            return
+        name = simpledialog.askstring("Name", "Enter the student's name:")
+        if not name:
+            return
+        # Save the new student details to the database
+        c.execute("INSERT INTO students (student_id, name) VALUES (?, ?)", (student_id, name))
+        conn.commit()
+        messagebox.showinfo("Success", "New student added successfully!")
+
+    def scan_student_id(self):
+        student_id = simpledialog.askstring("Student ID", "Enter the student ID:")
+        if not student_id:
+            return
+
+        student = c.execute("SELECT * FROM students WHERE student_id=?", (student_id,)).fetchone()
+        if student is not None:
+            print('Attendance recorded for student ID:', student[0], 'Name:', student[1])
+            self.label.config(text="Welcome, you are now marked as present!", fg='#4CAF50')
+        else:
+            self.label.config(text="Sorry, your student ID is not registered in the system!", fg='red')
+
+    def __del__(self):
+        # Close database connection
+        conn.commit()
+        conn.close()
+
+
+
+root = tk.Tk()
+root.title('CKT UTAS ATTENDANCE SYSTEM')
+root.geometry('300x250')
+root.configure(bg='#F0F0F0')
+root.iconbitmap('LOGO.ico')
+app = CKT_UTAS_AttendanceSystem(master=root)
+app.mainloop()

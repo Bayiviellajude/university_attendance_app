@@ -1,0 +1,144 @@
+import datetime
+import tkinter as tk
+from tkinter import Label, messagebox, simpledialog
+import pyodbc
+
+
+class CKT_UTAS_AttendanceSystem(tk.Frame):
+    def __init__(self, master=None):
+        super().__init__(master, bg='#F0F0F0')
+        self.master = master
+        self.pack()
+        self.create_widgets()
+
+        # Connect to database
+        conn_str = (
+            r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
+            r'DBQ=C:\Users\user\Documents\Database2.accdb;'
+        )
+        self.conn = pyodbc.connect(conn_str)
+        self.c = self.conn.cursor()
+
+    def create_widgets(self):
+        self.logo = tk.PhotoImage(file='LOGO.png')
+        self.logo_label = tk.Label(self, image=self.logo, bg='#F0F0F0')
+        self.logo_label.pack(side="top", pady=10)
+
+        self.label = tk.Label(self, text="Enter your student ID to take attendance:", bg='#F0F0F0', fg='#333')
+        self.label.pack(side="top", pady=10)
+
+        self.scan_button = tk.Button(self, text="Click to Enter ID", command=self.scan_student_id, bg='#4CAF50', fg='white', padx=20, pady=10)
+        self.scan_button.pack(side="top", pady=10)
+
+        add_student_button = tk.Button(self, text="Add New Student", command=self.show_add_student_dialog, bg='#4CAF50', fg='white', padx=20, pady=10)
+        add_student_button.pack(side="top", pady=10)
+        
+        view_attendance_button = tk.Button(self, text="View Attendance List", command=self.show_view_attendance_dialog, bg='#4CAF50', fg='white', padx=20, pady=10)
+        view_attendance_button.pack(side="top", pady=10)
+    
+
+
+    def show_add_student_dialog(self):
+        add_student_window = tk.Toplevel(self)
+        add_student_window.title("Add New Student")
+        add_student_window.geometry("300x200")
+        add_student_window.configure(bg='#F0F0F0')
+        add_student_window.iconbitmap('LOGO.ico')
+        add_student_window.resizable(False, False)
+
+        # Add student ID label and input field
+        student_id_label = tk.Label(add_student_window, text="Student ID:", bg='#F0F0F0', fg='#333')
+        student_id_label.pack(pady=10)
+        student_id_entry = tk.Entry(add_student_window)
+        student_id_entry.pack()
+
+        # Add student name label and input field
+        name_label = tk.Label(add_student_window, text="Name:", bg='#F0F0F0', fg='#333')
+        name_label.pack(pady=10)
+        name_entry = tk.Entry(add_student_window)
+        name_entry.pack()
+
+        # Add submit button
+        submit_button = tk.Button(add_student_window, text="Submit", command=lambda: self.add_student_to_database(student_id_entry.get(), name_entry.get(), add_student_window))
+        submit_button.pack(pady=10)
+
+    def add_student_to_database(self, student_id, name, add_student_window):
+        if not student_id:
+            messagebox.showerror("Error", "Please enter the student ID!")
+            return
+        if not name:
+            messagebox.showerror("Error", "Please enter the student's name!")
+            return
+        # Save the new student details to the database
+        self.c.execute("INSERT INTO students (student_id, name) VALUES (?, ?)", (student_id, name))
+        self.conn.commit()
+        messagebox.showinfo("Success", "New student added successfully!")
+        add_student_window.destroy()
+
+
+    def scan_student_id(self):
+        student_id = simpledialog.askstring("Student ID", "Enter the student ID:")
+        if not student_id:
+            return
+
+        student = self.c.execute("SELECT * FROM students WHERE student_id=?", (student_id,)).fetchone()
+        if student is not None:
+            name = student[1]
+            verify = messagebox.askyesno("Verification", f"Are you {name}?")
+            if verify:
+                attendance_date = datetime.date.today().strftime("%Y-%m-%d")
+                attendance_status = "present"
+                self.c.execute("INSERT INTO attendance (attendance_date, student_id, attendance_status) VALUES (?, ?, ?)", (attendance_date, student_id, attendance_status))
+                self.conn.commit()
+                messagebox.showinfo("PRESENT!")
+            else:
+                messagebox.showinfo("Sorry, your identity could not be verified!")
+               
+        else:
+            messagebox.showinfo("Sorry, your student ID is not registered in the system!")
+    
+    def show_view_attendance_dialog(self):
+        view_attendance_window = tk.Toplevel(self)
+        view_attendance_window.title("View Attendance")
+        view_attendance_window.geometry("300x200")
+        view_attendance_window.configure(bg='#F0F0F0')
+        view_attendance_window.iconbitmap('LOGO.ico')
+        view_attendance_window.resizable(False, False)
+
+    # Add date label and input field
+        date_label = tk.Label(view_attendance_window, text="Select Date (yyyy-mm-dd):", bg='#F0F0F0', fg='#333')
+        date_label.pack(pady=10)
+        date_entry = tk.Entry(view_attendance_window)
+        date_entry.pack()
+
+    # Add submit button
+        submit_button = tk.Button(view_attendance_window, text="Submit", command=lambda: self.view_attendance(date_entry.get(), view_attendance_window))
+        submit_button.pack(pady=10)
+    
+    def view_attendance(self, date, view_attendance_window):
+       if not date:
+        messagebox.showerror("Error", "Please enter a specific date!")
+        return
+       attendance_list = self.c.execute("SELECT students.name FROM students, attendance WHERE students.student_id = attendance.student_id AND attendance.attendance_date = ?", (date,)).fetchall()
+       if attendance_list:
+        attendance_list_str = "\n".join([student[0] for student in attendance_list])
+        messagebox.showinfo("Attendance List", f"Students who attended class on {date}:\n{attendance_list_str}")
+       else:
+        messagebox.showinfo("Attendance List", f"No students attended on {date}.")
+       view_attendance_window.destroy()
+       
+
+def __del__(self):
+        # Close
+
+        # Close database connection
+        self.conn.commit()
+        self.conn.close()
+
+root = tk.Tk()
+root.title('CKT UTAS ATTENDANCE SYSTEM')
+root.geometry('300x250')
+root.configure(bg='#F0F0F0')
+root.iconbitmap('LOGO.ico')
+app = CKT_UTAS_AttendanceSystem(master=root)
+app.mainloop()

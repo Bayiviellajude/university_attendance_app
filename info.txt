@@ -1,0 +1,1 @@
+This is a Python desktop GUI application built using the Tkinter library. It is an attendance management system that connects to a Microsoft Access database and allows users to add new students, take attendance, and view attendance records.

@@ -1,0 +1,80 @@
+import datetime
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+import pyodbc
+
+
+class CKT_UTAS_AttendanceSystem(tk.Frame):
+    def __init__(self, master=None):
+        super().__init__(master, bg='#F0F0F0')
+        self.master = master
+        self.pack()
+        self.create_widgets()
+
+        # Connect to database
+        conn_str = (
+            r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
+            r'DBQ=C:\Users\user\Documents\Database1.accdb;'
+        )
+        self.conn = pyodbc.connect(conn_str)
+        self.c = self.conn.cursor()
+
+    def create_widgets(self):
+        self.logo = tk.PhotoImage(file='LOGO.png')
+        self.logo_label = tk.Label(self, image=self.logo, bg='#F0F0F0')
+        self.logo_label.pack(side="top", pady=10)
+
+        self.label = tk.Label(self, text="Enter your student ID to mark your attendance:", bg='#F0F0F0', fg='#333')
+        self.label.pack(side="top", pady=10)
+
+        self.scan_button = tk.Button(self, text="Click to Enter ID", command=self.scan_student_id, bg='#4CAF50', fg='white', padx=20, pady=10)
+        self.scan_button.pack(side="top", pady=10)
+
+        add_student_button = tk.Button(self, text="Add New Student", command=self.show_add_student_dialog, bg='#4CAF50', fg='white', padx=20, pady=10)
+        add_student_button.pack(side="top", pady=10)
+
+    def show_add_student_dialog(self):
+        student_id = simpledialog.askstring("Student ID", "Enter the student ID:")
+        if not student_id:
+            return
+        name = simpledialog.askstring("Name", "Enter the student's name:")
+        if not name:
+            return
+        # Save the new student details to the database
+        self.c.execute("INSERT INTO students (student_id, name) VALUES (?, ?)", (student_id, name))
+        self.conn.commit()
+        messagebox.showinfo("Success", "New student added successfully!")
+
+    def scan_student_id(self):
+        student_id = simpledialog.askstring("Student ID", "Enter the student ID:")
+        if not student_id:
+            return
+
+        student = self.c.execute("SELECT * FROM students WHERE student_id=?", (student_id,)).fetchone()
+        if student is not None:
+            attendance_date = datetime.date.today().strftime("%Y-%m-%d")
+            attendance_status = "present"
+            self.c.execute("INSERT INTO attendance (attendance_date, student_id, attendance_status) VALUES (?, ?, ?)", (attendance_date, student_id, attendance_status))
+            self.conn.commit()
+            messagebox.showinfo("Welcome, you are now marked as present!")
+            #print('Attendance recorded for student ID:', student[1], 'Name:', student[2])
+        else:
+            self.label.config(text="Sorry, your student ID is not registered in the system!", fg='red')
+
+    def __del__(self):
+        # Close database connection
+        self.conn.commit()
+        self.conn.close()
+
+
+
+
+
+root = tk.Tk()
+root.title('CKT UTAS ATTENDANCE SYSTEM')
+root.geometry('300x250')
+root.configure(bg='#F0F0F0')
+root.iconbitmap('LOGO.ico')
+app = CKT_UTAS_AttendanceSystem(master=root)
+app.mainloop()

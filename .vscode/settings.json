@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "./pyfingerprint-Development/src/files",
+        "./pyfingerprint-Development/src/files"
+    ]
+}
